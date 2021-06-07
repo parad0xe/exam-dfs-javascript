@@ -9,31 +9,48 @@ export const Case = {
     test_name: "",
 
     toBeEquals: function(expected) {
-        if(Array.isArray(this.data))
-            return this.__arrayToBeEqual(expected)
-        else if(typeof this.data === "object")
-            return this.__objectToBeEqual(expected)
+        let res = this.__deepEquals(expected, this.data)
 
-        if(expected !== this.data)
-            return this.__failed(expected, this.data, `expected(${expected} [${typeof expected}]) not equals got(${this.data} [${typeof this.data}])`)
+        if(!res.ok)
+            return this.__failed(expected, this.data, res.error)
 
         return this.__success()
     },
 
-    __arrayToBeEqual: function(expected) {
-        for (let i of this.data.keys()) {
-            if(expected[i] !== this.data[i])
-                return this.__failed(expected[i], this.data[i], `expected(${expected[i]} [${typeof expected[i]}]) not equals got(${this.data[i]} [${typeof this.data[i]}])`)
+    __deepEquals: function(expected, got, key = "") {
+        let res = {ok: true, error: null}
+
+        if(typeof expected !== 'object' || typeof got !== 'object' || expected === null || got === null) {
+            if(expected !== got) {
+                res.ok = false
+                res.error = `expected("${expected}" [${typeof expected}]) not equal to got("${got}" [${typeof got}])`
+            }
+
+            return res
         }
 
-        return this.__success()
-    },
+        for (const k of Object.keys(expected)) {
+            let current_key = ""
 
-    __objectToBeEqual: function(expected) {
-        if(JSON.stringify(expected) !== JSON.stringify(this.data))
-            return this.__failed(expected, this.data, "Objects are not equals")
+            if(Array.isArray(expected)) {
+                current_key = (key === "") ? k : key + `[${k}]`
+            } else {
+                current_key = (key === "") ? k : key + `.${k}`
+            }
 
-        return this.__success()
+            if (typeof expected[k] !== "object") {
+                if(got.hasOwnProperty(k) && expected[k] === got[k]) {
+                    res.ok &= true
+                } else {
+                    res.ok = false
+                    res.error = `expected("${current_key} = ${expected[k]}" [${typeof expected[k]}]) not equal to got("${current_key} = ${got[k]}" [${typeof got[k]}])`
+                }
+            } else res = this.__deepEquals(expected[k], got[k], current_key)
+
+            if(!res.ok) break
+        }
+
+        return res
     },
 
     __failed: function(expected, got, error = null) {
